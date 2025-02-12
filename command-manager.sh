@@ -87,9 +87,9 @@ save_config() {
 # Function to add a custom command along with a directory where it should run
 add_command() {
     local custom_command directory full_command
-    custom_command=$(get_user_input "Add Custom Command" "Enter the command to run:")
+    custom_command=$(get_user_input "Add Custom Command 🚀" "Enter the command to run:")
     if [ -n "$custom_command" ]; then
-        directory=$(select_directory "Select directory for the custom command")
+        directory=$(select_directory "Select directory for the custom command 📂")
         if [ -n "$directory" ]; then
             full_command="cd \"$directory\" && $custom_command"
             if [ -z "$CUSTOM_COMMANDS" ]; then
@@ -99,7 +99,7 @@ add_command() {
             fi
             save_config
         else
-            display_error "Add Command" "No directory selected. Command not added."
+            display_error "Add Command" "❌ No directory selected. Command not added."
         fi
     fi
     select_commands_to_run
@@ -109,22 +109,22 @@ add_command() {
 import_preset() {
     local file preset_content response
     if [ "$OS" = "Darwin" ]; then
-        file=$(get_user_input "Import Preset" "Enter full path of the preset file to import:")
+        file=$(get_user_input "Import Preset 📥" "Enter full path of the preset file to import:")
     else
-        file=$(zenity --file-selection --title="Select a Preset File to Import" 2>/dev/null)
+        file=$(zenity --file-selection --title="Select a Preset File to Import 📥" 2>/dev/null)
     fi
     if [ -n "$file" ]; then
         if [ -f "$file" ]; then
             preset_content=$(cat "$file")
-            if ask_question "Import Preset" "Overwrite current commands with the imported preset?"; then
+            if ask_question "Import Preset" "Overwrite current commands with the imported preset? ⚠️"; then
                 CUSTOM_COMMANDS="$preset_content"
             else
                 CUSTOM_COMMANDS="${CUSTOM_COMMANDS}"$'\n'"${preset_content}"
             fi
             save_config
-            display_info "Import Preset" "Preset imported successfully."
+            display_info "Import Preset" "✅ Preset imported successfully."
         else
-            display_error "Import Preset" "Selected file not found."
+            display_error "Import Preset" "❌ Selected file not found."
         fi
     fi
 }
@@ -132,11 +132,11 @@ import_preset() {
 # Function to save current custom commands as a preset
 save_preset() {
     local preset_name preset_file
-    preset_name=$(get_user_input "Save Preset" "Enter a name for this preset:")
+    preset_name=$(get_user_input "Save Preset 💾" "Enter a name for this preset:")
     if [ -n "$preset_name" ]; then
         preset_file="$PRESETS_DIR/${preset_name}.preset"
         echo "$CUSTOM_COMMANDS" > "$preset_file"
-        display_info "Save Preset" "Preset saved as '$preset_name'."
+        display_info "Save Preset" "✅ Preset saved as '$preset_name'."
     fi
 }
 
@@ -162,23 +162,23 @@ EOF
 )
         selected_preset=$(echo "$selected_preset" | tr -d ',')
     else
-        selected_preset=$(zenity --list --title="Select Preset" --text="Select a preset to load:" --column="Preset" "${preset_names[@]}" 2>/dev/null)
+        selected_preset=$(zenity --list --title="Select Preset 💠" --text="Select a preset to load:" --column="Preset" "${preset_names[@]}" 2>/dev/null)
     fi
 
     if [ -n "$selected_preset" ] && [ "$selected_preset" != "false" ]; then
         preset_file="$PRESETS_DIR/${selected_preset}.preset"
         if [ -f "$preset_file" ]; then
             preset_content=$(cat "$preset_file")
-            if ask_question "Load Preset" "Overwrite current commands with preset '$selected_preset'?"; then
+            if ask_question "Load Preset" "Overwrite current commands with preset '$selected_preset'? ⚠️"; then
                 CUSTOM_COMMANDS="$preset_content"
             else
                 CUSTOM_COMMANDS="${CUSTOM_COMMANDS}"$'\n'"${preset_content}"
             fi
             SELECTED_PRESET="$selected_preset"
             save_config
-            display_info "Select Preset" "Preset '$selected_preset' loaded successfully."
+            display_info "Select Preset" "✅ Preset '$selected_preset' loaded successfully."
         else
-            display_error "Select Preset" "Preset file not found."
+            display_error "Select Preset" "❌ Preset file not found."
         fi
     fi
 }
@@ -187,18 +187,18 @@ EOF
 manage_presets() {
     local choice
     if [ "$OS" = "Darwin" ]; then
-        choice=$(osascript -e 'set theChoice to button returned of (display dialog "Select a preset action:" buttons {"Select Preset", "Import Preset", "Save Preset"} default button "Select Preset")' 2>/dev/null)
+        choice=$(osascript -e 'set theChoice to button returned of (display dialog "Select a preset action:" buttons {"Select Preset 🔄", "Import Preset 📥", "Save Preset 💾"} default button "Select Preset 🔄")' 2>/dev/null)
     else
-        choice=$(zenity --list --title="Preset Management" --text="Select a preset action:" --column="Option" "Select Preset" "Import Preset" "Save Preset" 2>/dev/null)
+        choice=$(zenity --list --title="Preset Management 🎛️" --text="Select a preset action:" --column="Option" "Select Preset 🔄" "Import Preset 📥" "Save Preset 💾" 2>/dev/null)
     fi
     case "$choice" in
-        "Select Preset")
+        "Select Preset 🔄")
             select_preset
             ;;
-        "Import Preset")
+        "Import Preset 📥")
             import_preset
             ;;
-        "Save Preset")
+        "Save Preset 💾")
             save_preset
             ;;
         *)
@@ -235,8 +235,8 @@ select_commands_to_run() {
             listItems+=( "$index) $cmd [$path]" )
             index=$((index+1))
         done
-        # Append extra actions
-        listItems+=( "Add Command" "Remove Command" "Manage Presets" )
+        # Append extra actions with emojis
+        listItems+=( "Add Command ➕" "Remove Command ❌" "Manage Presets ⚙️" )
         selected=$(osascript <<EOF
 set listItems to {$(printf '"%s", ' "${listItems[@]}" | sed 's/, $//')}
 set chosen to choose from list listItems with prompt "Select commands to run (multiple selections allowed):" with multiple selections allowed
@@ -245,13 +245,13 @@ return chosen as string
 EOF
 )
         [ -z "$selected" ] && exit 0
-        if [[ "$selected" == *"Add Command"* ]]; then
+        if [[ "$selected" == *"Add Command ➕"* ]]; then
             add_command
             return
-        elif [[ "$selected" == *"Manage Presets"* ]]; then
+        elif [[ "$selected" == *"Manage Presets ⚙️"* ]]; then
             manage_presets
             return
-        elif [[ "$selected" == *"Remove Command"* ]]; then
+        elif [[ "$selected" == *"Remove Command ❌"* ]]; then
             delete_commands_window
             return
         fi
@@ -281,23 +281,23 @@ EOF
             index=$((index + 1))
         done
         CHOICES=$(zenity --list --checklist --print-column=2 \
-            --title="Custom Commands" \
+            --title="Command Manager 🚀" \
             --text="$selected_preset_label\n\nSelect commands to run:" \
             --column="" --column="ID" --column="Command" --column="Path" \
             --width=1200 --height=600 \
             "${options[@]}" \
-            --extra-button="Add Command" \
-            --extra-button="Remove Command" \
-            --extra-button="Manage Presets" \
+            --extra-button="Add Command ➕" \
+            --extra-button="Remove Command ❌" \
+            --extra-button="Manage Presets ⚙️" \
             --separator="|" 2>/dev/null)
       
-        if [ "$CHOICES" == "Add Command" ]; then
+        if [ "$CHOICES" == "Add Command ➕" ]; then
             add_command
             return
-        elif [ "$CHOICES" == "Manage Presets" ]; then
+        elif [ "$CHOICES" == "Manage Presets ⚙️" ]; then
             manage_presets
             return
-        elif [ "$CHOICES" == "Remove Command" ]; then
+        elif [ "$CHOICES" == "Remove Command ❌" ]; then
             delete_commands_window
             return
         fi
@@ -327,7 +327,7 @@ delete_commands_window() {
         done
         selected=$(osascript <<EOF
 set listItems to {$(printf '"%s", ' "${listItems[@]}" | sed 's/, $//')}
-set chosen to choose from list listItems with prompt "Select commands to remove (multiple selections allowed):" with multiple selections allowed
+set chosen to choose from list listItems with prompt "Select commands to remove ❌ (multiple selections allowed):" with multiple selections allowed
 if chosen is false then return ""
 return chosen as string
 EOF
@@ -369,7 +369,7 @@ EOF
             index=$((index + 1))
         done
         CHOICES=$(zenity --list --checklist --print-column=1 \
-            --title="Delete Commands" \
+            --title="Delete Commands ❌" \
             --text="Select commands to delete:" \
             --column="ID" --column="Command" --column="Path" \
             "${options[@]}" \
