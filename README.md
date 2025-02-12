@@ -37,7 +37,8 @@ Add this at the end of the file:
 alias command-manager='/home/<full path to script>/command-manager.sh'
 ```
 Open a new terminal session or type source ~/.bashrc in your terminal to apply.
-Then simply use the name "command-manager" to start the script from everywhere.
+
+Then simply type "command-manager" in your terminal to start the script from everywhere.
 
 Follow the on-screen prompts to add, manage, or remove custom commands and presets.
 
