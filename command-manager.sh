@@ -14,9 +14,56 @@ mkdir -p "$PRESETS_DIR"
 # Detect the OS
 OS=$(uname)
 
+# --- Helper Functions for Dialogs ---
+get_user_input() {
+    local title="$1"
+    local prompt="$2"
+    local result=""
+    if [ "$OS" = "Darwin" ]; then
+        result=$(osascript -e "tell application \"System Events\" to display dialog \"$prompt\" default answer \"\"" -e 'text returned of result' 2>/dev/null)
+    else
+        result=$(zenity --entry --title="$title" --text="$prompt" 2>/dev/null)
+    fi
+    echo "$result"
+}
+
+display_info() {
+    local title="$1"
+    local message="$2"
+    if [ "$OS" = "Darwin" ]; then
+        osascript -e "display dialog \"$message\" buttons {\"OK\"} default button \"OK\"" 2>/dev/null
+    else
+        zenity --info --title="$title" --text="$message" 2>/dev/null
+    fi
+}
+
+display_error() {
+    local title="$1"
+    local message="$2"
+    if [ "$OS" = "Darwin" ]; then
+        osascript -e "display dialog \"$message\" buttons {\"OK\"} default button \"OK\" with icon caution" 2>/dev/null
+    else
+        zenity --error --title="$title" --text="$message" 2>/dev/null
+    fi
+}
+
+ask_question() {
+    local title="$1"
+    local question="$2"
+    if [ "$OS" = "Darwin" ]; then
+        response=$(osascript -e "display dialog \"$question\" buttons {\"No\", \"Yes\"} default button \"Yes\"" -e 'button returned of result' 2>/dev/null)
+        [ "$response" = "Yes" ] && return 0 || return 1
+    else
+        zenity --question --title="$title" --text="$question" 2>/dev/null
+        return $?
+    fi
+}
+# --- End Helper Functions ---
+
 # Function to prompt the user to select a directory using Zenity or osascript
 select_directory() {
     local title="$1"
+    local directory=""
     if [ "$OS" = "Darwin" ]; then
         directory=$(osascript <<EOF
 tell application "Finder"
@@ -40,11 +87,7 @@ save_config() {
 # Function to add a custom command along with a directory where it should run
 add_command() {
     local custom_command directory full_command
-    if [ "$OS" = "Darwin" ]; then
-        custom_command=$(osascript -e 'tell application "System Events" to display dialog "Enter the command to run:" default answer ""' -e 'text returned of result' 2>/dev/null)
-    else
-        custom_command=$(zenity --entry --title="Add Custom Command" --text="Enter the command to run:" 2>/dev/null)
-    fi
+    custom_command=$(get_user_input "Add Custom Command" "Enter the command to run:")
     if [ -n "$custom_command" ]; then
         directory=$(select_directory "Select directory for the custom command")
         if [ -n "$directory" ]; then
@@ -56,11 +99,7 @@ add_command() {
             fi
             save_config
         else
-            if [ "$OS" = "Darwin" ]; then
-                osascript -e 'display dialog "No directory selected. Command not added." buttons {"OK"} default button 1 with icon caution'
-            else
-                zenity --error --text="No directory selected. Command not added." 2>/dev/null
-            fi
+            display_error "Add Command" "No directory selected. Command not added."
         fi
     fi
     select_commands_to_run
@@ -68,41 +107,24 @@ add_command() {
 
 # Function to import a preset from a user-selected file
 import_preset() {
-    local file preset_content
+    local file preset_content response
     if [ "$OS" = "Darwin" ]; then
-        file=$(osascript -e 'tell application "System Events" to display dialog "Select a preset file to import (enter full path):" default answer ""' -e 'text returned of result' 2>/dev/null)
+        file=$(get_user_input "Import Preset" "Enter full path of the preset file to import:")
     else
         file=$(zenity --file-selection --title="Select a Preset File to Import" 2>/dev/null)
     fi
     if [ -n "$file" ]; then
         if [ -f "$file" ]; then
             preset_content=$(cat "$file")
-            if [ "$OS" = "Darwin" ]; then
-                response=$(osascript -e 'display dialog "Overwrite current commands with the imported preset?" buttons {"No", "Yes"} default button "Yes"' -e 'button returned of result')
-                if [ "$response" = "Yes" ]; then
-                    CUSTOM_COMMANDS="$preset_content"
-                else
-                    CUSTOM_COMMANDS="${CUSTOM_COMMANDS}"$'\n'"${preset_content}"
-                fi
+            if ask_question "Import Preset" "Overwrite current commands with the imported preset?"; then
+                CUSTOM_COMMANDS="$preset_content"
             else
-                if zenity --question --title="Import Preset" --text="Overwrite current commands with the imported preset?" 2>/dev/null; then
-                    CUSTOM_COMMANDS="$preset_content"
-                else
-                    CUSTOM_COMMANDS="${CUSTOM_COMMANDS}"$'\n'"${preset_content}"
-                fi
+                CUSTOM_COMMANDS="${CUSTOM_COMMANDS}"$'\n'"${preset_content}"
             fi
             save_config
-            if [ "$OS" = "Darwin" ]; then
-                osascript -e 'display dialog "Preset imported successfully." buttons {"OK"} default button 1'
-            else
-                zenity --info --text="Preset imported successfully." 2>/dev/null
-            fi
+            display_info "Import Preset" "Preset imported successfully."
         else
-            if [ "$OS" = "Darwin" ]; then
-                osascript -e 'display dialog "Selected file not found." buttons {"OK"} default button 1 with icon caution'
-            else
-                zenity --error --text="Selected file not found." 2>/dev/null
-            fi
+            display_error "Import Preset" "Selected file not found."
         fi
     fi
 }
@@ -110,19 +132,11 @@ import_preset() {
 # Function to save current custom commands as a preset
 save_preset() {
     local preset_name preset_file
-    if [ "$OS" = "Darwin" ]; then
-        preset_name=$(osascript -e 'tell application "System Events" to display dialog "Enter a name for this preset:" default answer ""' -e 'text returned of result' 2>/dev/null)
-    else
-        preset_name=$(zenity --entry --title="Save Preset" --text="Enter a name for this preset:" 2>/dev/null)
-    fi
+    preset_name=$(get_user_input "Save Preset" "Enter a name for this preset:")
     if [ -n "$preset_name" ]; then
         preset_file="$PRESETS_DIR/${preset_name}.preset"
         echo "$CUSTOM_COMMANDS" > "$preset_file"
-        if [ "$OS" = "Darwin" ]; then
-            osascript -e "display dialog \"Preset saved as '$preset_name'.\" buttons {\"OK\"} default button \"OK\""
-        else
-            zenity --info --text="Preset saved as '$preset_name'." 2>/dev/null
-        fi
+        display_info "Save Preset" "Preset saved as '$preset_name'."
     fi
 }
 
@@ -135,11 +149,7 @@ select_preset() {
     done < <(find "$PRESETS_DIR" -maxdepth 1 -type f -name "*.preset" -exec basename {} .preset \; 2>/dev/null)
 
     if [ "${#preset_names[@]}" -eq 0 ]; then
-        if [ "$OS" = "Darwin" ]; then
-            osascript -e 'display dialog "No presets found. Please save a preset first." buttons {"OK"} default button 1'
-        else
-            zenity --info --text="No presets found. Please save a preset first." 2>/dev/null
-        fi
+        display_info "Select Preset" "No presets found. Please save a preset first."
         return
     fi
 
@@ -159,33 +169,16 @@ EOF
         preset_file="$PRESETS_DIR/${selected_preset}.preset"
         if [ -f "$preset_file" ]; then
             preset_content=$(cat "$preset_file")
-            if [ "$OS" = "Darwin" ]; then
-                response=$(osascript -e "display dialog \"Overwrite current commands with preset '$selected_preset'?\" buttons {\"No\", \"Yes\"} default button \"Yes\"" -e 'button returned of result')
-                if [ "$response" = "Yes" ]; then
-                    CUSTOM_COMMANDS="$preset_content"
-                else
-                    CUSTOM_COMMANDS="${CUSTOM_COMMANDS}"$'\n'"${preset_content}"
-                fi
+            if ask_question "Load Preset" "Overwrite current commands with preset '$selected_preset'?"; then
+                CUSTOM_COMMANDS="$preset_content"
             else
-                if zenity --question --title="Load Preset" --text="Overwrite current commands with preset '$selected_preset'?" 2>/dev/null; then
-                    CUSTOM_COMMANDS="$preset_content"
-                else
-                    CUSTOM_COMMANDS="${CUSTOM_COMMANDS}"$'\n'"${preset_content}"
-                fi
+                CUSTOM_COMMANDS="${CUSTOM_COMMANDS}"$'\n'"${preset_content}"
             fi
             SELECTED_PRESET="$selected_preset"
             save_config
-            if [ "$OS" = "Darwin" ]; then
-                osascript -e "display dialog \"Preset '$selected_preset' loaded successfully.\" buttons {\"OK\"} default button \"OK\""
-            else
-                zenity --info --text="Preset '$selected_preset' loaded successfully." 2>/dev/null
-            fi
+            display_info "Select Preset" "Preset '$selected_preset' loaded successfully."
         else
-            if [ "$OS" = "Darwin" ]; then
-                osascript -e 'display dialog "Preset file not found." buttons {"OK"} default button 1 with icon caution'
-            else
-                zenity --error --text="Preset file not found." 2>/dev/null
-            fi
+            display_error "Select Preset" "Preset file not found."
         fi
     fi
 }
@@ -229,10 +222,9 @@ parse_command() {
     echo "$cmd|||$dir"
 }
 
-# Modified select_commands_to_run for Darwin using AppleScript as a Zenity-like interface.
+# Modified select_commands_to_run with a unified loop approach using helper functions.
 select_commands_to_run() {
     if [ "$OS" = "Darwin" ]; then
-        # Build an array with extra actions and the list items
         local -a fullCommands=() index=0 listItems=()
         IFS=$'\n' read -rd '' -a fullCommands <<< "$CUSTOM_COMMANDS"
         for line in "${fullCommands[@]}"; do
@@ -245,7 +237,6 @@ select_commands_to_run() {
         done
         # Append extra actions
         listItems+=( "Add Command" "Remove Command" "Manage Presets" )
-        # Show choose-from-list dialog (allows multiple selection)
         selected=$(osascript <<EOF
 set listItems to {$(printf '"%s", ' "${listItems[@]}" | sed 's/, $//')}
 set chosen to choose from list listItems with prompt "Select commands to run (multiple selections allowed):" with multiple selections allowed
@@ -253,11 +244,7 @@ if chosen is false then return ""
 return chosen as string
 EOF
 )
-        # Process selection: if empty, exit
-        if [ -z "$selected" ]; then
-            exit 0
-        fi
-        # Handle actions if any extra button was picked (assuming user picks one extra action at a time)
+        [ -z "$selected" ] && exit 0
         if [[ "$selected" == *"Add Command"* ]]; then
             add_command
             return
@@ -268,20 +255,17 @@ EOF
             delete_commands_window
             return
         fi
-        # Replace splitting to use comma as separator and trim whitespace
         IFS=',' read -ra chosenItems <<< "$selected"
         for item in "${chosenItems[@]}"; do
-            item=$(echo "$item" | xargs)  # trim whitespace
+            item=$(echo "$item" | xargs)
             idx=$(echo "$item" | cut -d')' -f1)
             full_cmd="${fullCommands[$idx]}"
             if [ -n "$full_cmd" ]; then
-                # Remove "in front window" so that new terminal windows open for each command
                 osascript -e "tell application \"Terminal\" to do script \"${full_cmd//\"/\\\"}; exit\""
             fi
         done
         select_commands_to_run
     else
-        # ...existing Linux code...
         local options=() CHOICES
         local -a fullCommands=()
         local IFS_old="$IFS" index=0 line parsed cmd path
@@ -328,7 +312,7 @@ EOF
     fi
 }
 
-# Modified delete_commands_window for Darwin using a Zenity-like AppleScript interface.
+# Modified delete_commands_window using helper functions.
 delete_commands_window() {
     if [ "$OS" = "Darwin" ]; then
         local -a fullCommands=() listItems=() index=0
@@ -348,14 +332,9 @@ if chosen is false then return ""
 return chosen as string
 EOF
 )
-        # If no selection, do nothing
-        if [ -z "$selected" ]; then
-            select_commands_to_run
-            return
-        fi
-        # Parse selection; filter out chosen indices.
+        [ -z "$selected" ] && { select_commands_to_run; return; }
         IFS=", " read -ra chosenItems <<< "$selected"
-        local newCommands=() idx
+        local newCommands=()
         for idx in "${!fullCommands[@]}"; do
             skip=0
             for item in "${chosenItems[@]}"; do
@@ -367,17 +346,15 @@ EOF
             done
             [ $skip -eq 0 ] && newCommands+=( "${fullCommands[$idx]}" )
         done
-        # If no commands remain, explicitly reset CUSTOM_COMMANDS
         if [ ${#newCommands[@]} -eq 0 ]; then
             CUSTOM_COMMANDS=""
         else
             CUSTOM_COMMANDS=$(printf "%s\n" "${newCommands[@]}")
         fi
         save_config
-        osascript -e 'display dialog "Selected commands removed." buttons {"OK"} default button "OK"'
+        display_info "Delete Commands" "Selected commands removed."
         select_commands_to_run
     else
-        # ...existing Linux code...
         local options=() CHOICES
         local -a fullCommands=()
         local IFS_old="$IFS" index=0 line parsed cmd path
@@ -398,7 +375,7 @@ EOF
             "${options[@]}" \
             --separator="|" 2>/dev/null)
         [ -z "$CHOICES" ] && exit 0
-        local newCommands=() removeFlag
+        local newCommands=()
         IFS='|' read -ra removeIDs <<< "$CHOICES"
         for idx in "${!fullCommands[@]}"; do
             removeFlag=0
@@ -412,7 +389,7 @@ EOF
         done
         CUSTOM_COMMANDS=$(printf "%s\n" "${newCommands[@]}" | sed '/^$/d')
         save_config
-        zenity --info --text="Selected commands removed." 2>/dev/null
+        display_info "Delete Commands" "Selected commands removed."
         select_commands_to_run
     fi
 }
