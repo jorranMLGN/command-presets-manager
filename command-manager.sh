@@ -86,22 +86,95 @@ save_config() {
 
 # Function to add a custom command along with a directory where it should run
 add_command() {
-    local custom_command directory full_command
-    custom_command=$(get_user_input "Add Custom Command 🚀" "Enter the command to run:")
-    if [ -n "$custom_command" ]; then
-        directory=$(select_directory "Select directory for the custom command 📂")
-        if [ -n "$directory" ]; then
-            full_command="cd \"$directory\" && $custom_command"
-            if [ -z "$CUSTOM_COMMANDS" ]; then
-                CUSTOM_COMMANDS="${full_command}"
-            else
-                CUSTOM_COMMANDS="${CUSTOM_COMMANDS}"$'\n'"${full_command}"
+    local custom_command directory full_command result dir_input status
+    if [ "$OS" = "Darwin" ]; then
+        # macOS branch remains unchanged
+        while true; do
+            result=$(osascript <<'EOF'
+set dialogResult to display dialog "Enter the custom command and directory path separated by a newline:" default answer "" buttons {"Browse", "OK", "Cancel"} default button "OK"
+if button returned of dialogResult is "Browse" then
+    set chosenFolder to choose folder with prompt "Select Directory"
+    set dirPath to POSIX path of chosenFolder
+    set currentText to text returned of dialogResult
+    display dialog "Enter the custom command and directory path separated by a newline:" default answer (currentText & return & dirPath) buttons {"OK", "Cancel"} default button "OK"
+    return result
+else
+    return text returned of dialogResult
+end if
+EOF
+)
+            if [ $? -ne 0 ] || [ -z "$result" ]; then
+                select_commands_to_run
+                return
             fi
-            save_config
-        else
-            display_error "Add Command" "❌ No directory selected. Command not added."
-        fi
+            custom_command="${result%%|||*}"
+            directory="${result#*|||}"
+            custom_command=$(printf "%s" "$custom_command" | head -n1)
+            directory=$(printf "%s" "$directory" | tail -n1)
+            if [ -n "$custom_command" ] && [ -n "$directory" ]; then
+                break
+            else
+                osascript -e 'display dialog "Both command and directory must be provided. Please try again." buttons {"OK"} default button "OK"'
+            fi
+        done
+    else
+        # Linux branch using zenity forms with an extra Browse button.
+        while true; do
+            result=$(zenity --forms --title="Add Custom Command 🚀" \
+                --text="Enter both the command and the directory path:" \
+                --add-entry="Command to run" \
+                --add-entry="Directory path" \
+                --extra-button="Browse Directory" 2>/dev/null)
+            status=$?
+            # First, check if the extra button was pressed.
+            if [ "$result" = "Browse Directory" ]; then
+                directory=$(zenity --file-selection --directory --title="Select Directory" 2>/dev/null)
+                if [ -z "$directory" ]; then
+                    continue
+                fi
+                # Reopen the form, showing the chosen directory in the prompt.
+                result=$(zenity --forms --title="Add Custom Command 🚀" \
+                    --text="Enter both the command and the directory path:\n[Chosen Directory: $directory]\nLeave the Directory field empty to use selected directory." \
+                    --add-entry="Command to run" \
+                    --add-entry="Directory path" 2>/dev/null)
+                status=$?
+                if [ $status -ne 0 ]; then
+                    select_commands_to_run
+                    return
+                fi
+                custom_command=$(echo "$result" | cut -d'|' -f1)
+                dir_input=$(echo "$result" | cut -d'|' -f2)
+                if [ -z "$dir_input" ]; then
+                    directory="$directory"
+                else
+                    directory="$dir_input"
+                fi
+            elif [ $status -ne 0 ]; then
+                # If the form was canceled (and not via extra button) return to main menu.
+                select_commands_to_run
+                return
+            else
+                custom_command=$(echo "$result" | cut -d'|' -f1)
+                directory=$(echo "$result" | cut -d'|' -f2)
+                if [ -z "$directory" ]; then
+                    directory=$(zenity --file-selection --directory --title="Select Directory" 2>/dev/null)
+                fi
+            fi
+            if [ -n "$custom_command" ] && [ -n "$directory" ]; then
+                break
+            else
+                display_error "Add Command" "❌ Both command and directory must be provided. Please try again."
+            fi
+        done
     fi
+
+    full_command="cd \"$directory\" && $custom_command"
+    if [ -z "$CUSTOM_COMMANDS" ]; then
+        CUSTOM_COMMANDS="${full_command}"
+    else
+        CUSTOM_COMMANDS="${CUSTOM_COMMANDS}"$'\n'"${full_command}"
+    fi
+    save_config
     select_commands_to_run
 }
 
