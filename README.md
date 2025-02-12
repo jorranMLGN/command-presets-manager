@@ -19,4 +19,17 @@ This Bash script provides a cross-platform GUI to manage and run custom shell co
 1. Clone or download the project.
 2. Ensure the script is executable:
    ```bash
-   chmod +x run_presets.sh
+   chmod +x command-manager.sh
+3. (Optional) Move the script to a directory in your PATH for easy access.
+Usage
+Run the script directly from your terminal:
+   ```bash
+   ./command-manager.sh
+Follow the on-screen prompts to add, manage, or remove custom commands and presets.
+
+Configuration
+Custom commands are stored in ~/.custom_commands.
+Presets are saved in the directory ~/.command_presets.
+License
+This project is provided "as is" without warranty of any kind.
+
