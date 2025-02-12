@@ -1,5 +1,4 @@
 #!/bin/bash
-# filepath: /home/jorran/Desktop/run_presets.sh
 
 CONFIG_FILE="$HOME/.custom_commands"
 PRESETS_DIR="$HOME/.command_presets"
