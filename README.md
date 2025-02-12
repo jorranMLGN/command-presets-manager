@@ -1,5 +1,5 @@
 
-# Run Presets Bash Script 🚀
+# Multiple Pre-configured Commands Running in 1 click 🚀
 
 This Bash script provides a cross-platform GUI to manage and run custom shell commands with preset working directories. It uses Zenity on Linux and AppleScript on macOS, allowing you to add, remove, import, and save command presets with ease. 🖥️💻
 
