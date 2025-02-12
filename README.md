@@ -27,6 +27,18 @@ Run the script directly from your terminal:
    ```bash
    ./command-manager.sh
    ```
+### Alias
+If you want to use a different command to start it, you can add an alias:
+   ```bash
+   gedit ~/.bashrc
+   ```
+Add this at the end of the file:
+
+alias command-manager='/home/<full path to script>/command-manager.sh'
+
+Open a new terminal session or type source ~/.bashrc in your terminal to apply.
+Then simply use the name "command-manager" to start the script from everywhere.
+
 Follow the on-screen prompts to add, manage, or remove custom commands and presets.
 
 Configuration
