@@ -118,47 +118,30 @@ EOF
             fi
         done
     else
-        # Linux branch using zenity forms with an extra Browse button.
+        # Linux branch – ask for the command first and then the directory.
         while true; do
-            result=$(zenity --forms --title="Add Custom Command 🚀" \
-                --text="Enter both the command and the directory path:" \
-                --add-entry="Command to run" \
-                --add-entry="Directory path" \
-                --extra-button="Browse Directory" 2>/dev/null)
+            custom_command=$(zenity --entry --title="Add Custom Command 🚀" --text="Enter the custom command to run:" 2>/dev/null)
+            if [ $? -ne 0 ] || [ -z "$custom_command" ]; then
+                select_commands_to_run
+                return
+            fi
+            # Ask user for the directory; allow using the extra button to browse.
+            directory_response=$(zenity --entry --title="Add Custom Command 🚀" --text="Enter the directory path or leave empty to browse:"  --extra-button="Browse Directory" 2>/dev/null)
             status=$?
-            # First, check if the extra button was pressed.
-            if [ "$result" = "Browse Directory" ]; then
-                directory=$(zenity --file-selection --directory --title="Select Directory" 2>/dev/null)
+            if [ "$directory_response" = "Browse Directory" ]; then
+                directory=$(select_directory "Select Directory")
                 if [ -z "$directory" ]; then
                     continue
                 fi
-                # Reopen the form, showing the chosen directory in the prompt.
-                result=$(zenity --forms --title="Add Custom Command 🚀" \
-                    --text="Enter both the command and the directory path:\n[Chosen Directory: $directory]\nLeave the Directory field empty to use selected directory." \
-                    --add-entry="Command to run" \
-                    --add-entry="Directory path" 2>/dev/null)
-                status=$?
-                if [ $status -ne 0 ]; then
-                    select_commands_to_run
-                    return
-                fi
-                custom_command=$(echo "$result" | cut -d'|' -f1)
-                dir_input=$(echo "$result" | cut -d'|' -f2)
-                if [ -z "$dir_input" ]; then
-                    directory="$directory"
-                else
-                    directory="$dir_input"
-                fi
             elif [ $status -ne 0 ]; then
-                # If the form was canceled (and not via extra button) return to main menu.
                 select_commands_to_run
                 return
             else
-                custom_command=$(echo "$result" | cut -d'|' -f1)
-                directory=$(echo "$result" | cut -d'|' -f2)
-                if [ -z "$directory" ]; then
-                    directory=$(zenity --file-selection --directory --title="Select Directory" 2>/dev/null)
-                fi
+                directory="$directory_response"
+            fi
+
+            if [ -z "$directory" ]; then
+                directory=$(zenity --file-selection --directory --title="Select Directory" 2>/dev/null)
             fi
             if [ -n "$custom_command" ] && [ -n "$directory" ]; then
                 break
