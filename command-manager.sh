@@ -256,13 +256,49 @@ EOF
     fi
 }
 
+# New function to remove a preset
+remove_preset() {
+    local preset_file selected_preset
+    local -a preset_names=()
+    while IFS= read -r line; do
+        preset_names+=("$line")
+    done < <(find "$PRESETS_DIR" -maxdepth 1 -type f -name "*.preset" -exec basename {} .preset \; 2>/dev/null)
+
+    if [ ${#preset_names[@]} -eq 0 ]; then
+        display_info "Remove Preset" "No presets found to remove."
+        return
+    fi
+
+    if [ "$OS" = "Darwin" ]; then
+        IFS=$'\n' preset_list="${preset_names[*]}"
+        selected_preset=$(osascript <<EOF
+set theList to paragraphs of "$preset_list"
+choose from list theList with prompt "Select a preset to remove:" without multiple selections allowed
+EOF
+)
+        selected_preset=$(echo "$selected_preset" | tr -d ',')
+    else
+        selected_preset=$(zenity --list --title="Remove Preset ❌" --text="Select a preset to remove:" --column="Preset" "${preset_names[@]}" 2>/dev/null)
+    fi
+
+    if [ -n "$selected_preset" ] && [ "$selected_preset" != "false" ]; then
+        preset_file="$PRESETS_DIR/${selected_preset}.preset"
+        if [ -f "$preset_file" ]; then
+            rm -f "$preset_file"
+            display_info "Remove Preset" "Preset '$selected_preset' has been removed."
+        else
+            display_error "Remove Preset" "Preset file not found."
+        fi
+    fi
+}
+
 # Function to display the preset management menu
 manage_presets() {
     local choice
     if [ "$OS" = "Darwin" ]; then
-        choice=$(osascript -e 'set theChoice to button returned of (display dialog "Select a preset action:" buttons {"Select Preset 🔄", "Import Preset 📥", "Save Preset 💾"} default button "Select Preset 🔄")' 2>/dev/null)
+        choice=$(osascript -e 'set theChoice to button returned of (display dialog "Select a preset action:" buttons {"Select Preset 🔄", "Import Preset 📥", "Save Preset 💾", "Remove Preset ❌"} default button "Select Preset 🔄")' 2>/dev/null)
     else
-        choice=$(zenity --list --title="Preset Management 🎛️" --text="Select a preset action:" --column="Option" "Select Preset 🔄" "Import Preset 📥" "Save Preset 💾" 2>/dev/null)
+        choice=$(zenity --list --title="Preset Management 🎛️" --text="Select a preset action:" --column="Option" "Select Preset 🔄" "Import Preset 📥" "Save Preset 💾" "Remove Preset ❌" 2>/dev/null)
     fi
     case "$choice" in
         "Select Preset 🔄")
@@ -274,11 +310,15 @@ manage_presets() {
         "Save Preset 💾")
             save_preset
             ;;
+        "Remove Preset ❌")
+            remove_preset
+            ;;
         *)
             ;;
     esac
     select_commands_to_run
 }
+
 
 # Function to parse a full command and extract the directory and the actual command
 # Assumes format: cd "directory" && <command>
