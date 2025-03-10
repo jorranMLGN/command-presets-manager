@@ -3,6 +3,18 @@
 CONFIG_FILE="$HOME/.custom_commands"
 PRESETS_DIR="$HOME/.command_presets"
 
+if [ -t 0 ] && [ "$1" != "--running-in-background" ]; then
+    # Relaunch self in background
+    nohup "$0" --running-in-background > /dev/null 2>&1 &
+
+    # Notify user that the manager is now running in background
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send "Command Manager" "Running in background mode" -i system-run
+    fi
+    exit 0
+fi
+
+
 # Define color codes
 RED='\033[0;31m'
 GREEN='\033[0;32m'
